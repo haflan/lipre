@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,13 +11,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// Not used - either read password from config / flag or define the valid rooms in a file on server
 const temporaryCorrectRoomCode = "tester"
 
 type Room struct {
 	code      string
 	presenter *websocket.Conn
-	// TODO:
-	viewers []*websocket.Conn
+	viewers   []*websocket.Conn
+	// Store files so that they can be sent to new viewers upon connection
+	files map[string][]byte
 }
 
 // TODO: Lock on this for concurrency?
@@ -32,6 +35,17 @@ func (room *Room) listen() {
 			delete(rooms, room.code)
 			return
 		}
+		file := struct {
+			Name     string `json:"name"`
+			Contents string `json:"contents"`
+		}{}
+		err = json.Unmarshal(message, &file)
+		if err != nil {
+			log.Printf("error: %v", err)
+			// TODO: Send info to presenter
+			return
+		}
+		room.files[file.Name] = message
 		for _, viewerConn := range room.viewers {
 			if viewerConn == nil {
 				break
@@ -68,7 +82,7 @@ func presentHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	room := &Room{code: roomCode, presenter: conn}
+	room := &Room{code: roomCode, presenter: conn, files: make(map[string][]byte)}
 	rooms[roomCode] = room
 	go room.listen()
 }
@@ -85,6 +99,9 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	room.viewers = append(rooms[roomCode].viewers, conn)
+	for _, filedata := range room.files {
+		conn.WriteMessage(websocket.TextMessage, filedata)
+	}
 }
 
 func main() {

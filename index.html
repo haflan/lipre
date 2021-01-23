@@ -22,6 +22,7 @@
         function connect(roomCode, present, openCallback) {
             let url = "ws://" + document.location.host + (present ? "/pres/" : "/view/") + roomCode
             window.ws = new WebSocket(url)
+            window.files = {}
             ws.onclose = () => {
                 setStatus("No connection to the given room")
             }
@@ -30,7 +31,9 @@
                 openCallback()
             }
             ws.onmessage = (msg) => {
-                setCode(msg.data)
+                let fileReceived = JSON.parse(msg.data)
+                window.files[fileReceived.name] = fileReceived.contents
+                setCode(fileReceived.contents)
                 hljs.highlightBlock(document.getElementById("viewer"))
             }
         }
