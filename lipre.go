@@ -62,7 +62,16 @@ var wsUpgrader = websocket.Upgrader{
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	htmlData, err := ioutil.ReadFile("index.html")
+	htmlData, err := ioutil.ReadFile("ui/index.html")
+	if err != nil {
+		panic(err)
+	}
+	w.Write(htmlData)
+	return
+}
+
+func jsHandler(w http.ResponseWriter, r *http.Request) {
+	htmlData, err := ioutil.ReadFile("ui/lipre.js")
 	if err != nil {
 		panic(err)
 	}
@@ -108,6 +117,8 @@ func main() {
 	fmt.Println("Server starting")
 	router := mux.NewRouter()
 	router.HandleFunc("/", indexHandler)
+	router.HandleFunc("/room/{roomCode}", indexHandler)
+	router.HandleFunc("/lipre.js", jsHandler) // Temporary solution?
 	router.HandleFunc("/pres/{roomCode}", presentHandler)
 	router.HandleFunc("/view/{roomCode}", viewHandler)
 	http.Handle("/", router)
