@@ -1,14 +1,18 @@
 <template>
     <v-app>
-        <v-tabs>
-            <v-tab v-for="(filename, i) in filenames" 
-                   :key="i" @click="openFile(filename)"
+        <v-badge v-show="status"/>{{status}}
+        <v-tabs v-model="tab">
+            <v-tab v-for="filename in filenames" 
+                   :key="filename"
                    style="text-transform: none !important">
                 {{filename}}
             </v-tab>
         </v-tabs>
-        <pre><code style="height:100%; width:100%; white-space: pre">{{fileContents}}</code></pre>
-        <div v-show="status && status.length">{{status}}</div>
+        <v-tabs-items v-model="tab">
+            <v-tab-item v-for="filename in filenames"
+                style="font-family: monospace; white-space: pre-wrap; font-size:12px"
+                :key="filename">{{files[filename]}}</v-tab-item>
+        </v-tabs-items>
     </v-app>
 </template>
 
@@ -17,9 +21,9 @@ export default {
     name: "App",
     data() {
         return {
+            tab: null,
             files: {},
             filenames: [],
-            fileContents: "",
             status: "",
             ws: null
         }
@@ -37,7 +41,7 @@ export default {
             }
             this.ws.onmessage = (msg) => {
                 let fileReceived = JSON.parse(msg.data)
-                if (!fileReceived.contents || this.fileContents) {
+                if (!fileReceived.contents || !fileReceived.contents.length) {
                     // null file contents: Remove existing file
                     if (this.filenames.includes(fileReceived.name)) {
                         this.filenames = this.filenames.filter(fn => fn !== fileReceived.name)
@@ -48,15 +52,12 @@ export default {
                     if (!this.filenames.includes(fileReceived.name)) {
                         this.filenames.push(fileReceived.name)
                     }
-                    if (!this.fileContents || !this.fileContents.length) {
-                        this.openFile(fileReceived.name)
+                    if (this.tab === null) {
+                        this.tab = fileReceived.name
                     }
                 }
                 //hljs.highlightBlock(document.getElementById("viewer"))
             }
-        },
-        openFile(name) {
-            this.fileContents = this.files[name].contents
         }
     },
     mounted() {
