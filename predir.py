@@ -4,13 +4,30 @@ from os import listdir
 from os.path import isfile, basename
 import pyinotify
 import json
+import re
 import sys
 import websocket
 
-def send_file(filename, contents):
+ignorefilelist = []
+
+def should_ignore(filename):
+    for to_ignore in ignorefilelist:
+        # Make a regex from the asterix
+        match = re.search(to_ignore.replace("*", ".*"), filename)
+        if match:
+            return True
+    return False
+
+def send_file(filename):
+    if should_ignore(filename):
+        return
+    if isfile(filename):
+        contents = open(filename).read()
+    else:
+        contents = None
     fileobj = {
-            "name": filename,
-            "contents": contents
+            'name': filename,
+            'contents': contents
     }
     print(f'Sending {filename}')
     ws.send(json.dumps(fileobj))
@@ -18,28 +35,32 @@ def send_file(filename, contents):
 
 program = sys.argv[0]
 if len(sys.argv) <= 1:
-    print(f"Use: {program} <room code>")
+    print(f'Use: {program} <room code>')
     exit(1)
 room_code = sys.argv[1]
 
-HOST="localhost:8080"
+HOST='localhost:8080'
+IGNOREFILE='.lpignore'
 
 ws = websocket.WebSocket()
-ws.connect(f"ws://{HOST}/pres/{room_code}")
+ws.connect(f'ws://{HOST}/pres/{room_code}')
+
+if isfile(IGNOREFILE):
+    ignorefilelist = [fn for fn in open(IGNOREFILE).read().split('\n') if fn]
 
 # Initial file upload
 filenames = [fn for fn in listdir() if isfile(fn)]
 for fn in filenames:
-    send_file(fn, open(fn).read())
+    send_file(fn)
 
 # Listen for changes
 class EventHandler(pyinotify.ProcessEvent):
     def process_IN_CREATE(self, event):
         fn = basename(event.pathname)
-        send_file(fn, open(fn).read())
+        send_file(fn)
     def process_IN_DELETE(self, event):
         fn = basename(event.pathname)
-        send_file(fn, None)
+        send_file(fn)
     def process_IN_MODIFY(self, event):
         self.process_IN_CREATE(event)
 
@@ -48,4 +69,4 @@ handler = EventHandler()
 notifier = pyinotify.Notifier(wm, handler)
 mask = pyinotify.IN_DELETE | pyinotify.IN_CREATE | pyinotify.IN_MODIFY
 wm.add_watch('.', mask)
-notifier.loop() 
+notifier.loop()
