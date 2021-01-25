@@ -39,7 +39,7 @@ if len(sys.argv) <= 1:
     exit(1)
 room_code = sys.argv[1]
 
-HOST='localhost:8080'
+HOST='localhost:8088'
 IGNOREFILE='.lpignore'
 
 ws = websocket.WebSocket()

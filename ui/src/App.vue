@@ -1,18 +1,23 @@
 <template>
     <v-app>
-        <v-badge v-show="status"/>{{status}}
-        <v-tabs v-model="tab">
-            <v-tab v-for="filename in filenames" 
-                   :key="filename"
-                   style="text-transform: none !important">
-                {{filename}}
-            </v-tab>
-        </v-tabs>
-        <v-tabs-items v-model="tab">
-            <v-tab-item v-for="filename in filenames"
-                style="font-family: monospace; white-space: pre-wrap; font-size:12px"
-                :key="filename">{{files[filename]}}</v-tab-item>
-        </v-tabs-items>
+        <v-app-bar app>
+            <v-tabs v-model="tab">
+                <v-tab v-for="filename in filenames" 
+                       :key="filename"
+                       style="text-transform: none !important">
+                    {{filename}}
+                </v-tab>
+            </v-tabs>
+            <v-space/>
+            <v-badge v-show="status"/>
+        </v-app-bar>
+        <v-content>
+            <v-tabs-items v-model="tab">
+                <v-tab-item v-for="filename in filenames"
+                    style="font-family: monospace; white-space: pre; font-size:12px; margin: 1em"
+                    :key="filename">{{files[filename]}}</v-tab-item>
+            </v-tabs-items>
+        </v-content>
     </v-app>
 </template>
 
@@ -25,7 +30,8 @@ export default {
             files: {},
             filenames: [],
             status: "",
-            ws: null
+            ws: null,
+            follow: true
         }
     },
     methods: {
@@ -52,7 +58,7 @@ export default {
                     if (!this.filenames.includes(fileReceived.name)) {
                         this.filenames.push(fileReceived.name)
                     }
-                    if (this.tab === null) {
+                    if (this.tab === null || this.follow) {
                         this.tab = fileReceived.name
                     }
                 }

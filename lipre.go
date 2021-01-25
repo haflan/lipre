@@ -122,5 +122,5 @@ func main() {
 	router.HandleFunc("/pres/{roomCode}", presentHandler)
 	router.HandleFunc("/view/{roomCode}", viewHandler)
 	http.Handle("/", router)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", 8080), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", 8088), nil))
 }
