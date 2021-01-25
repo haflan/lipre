@@ -8,16 +8,15 @@
                     {{filename}}
                 </v-tab>
             </v-tabs>
-            <v-space/>
             <v-badge v-show="status"/>
         </v-app-bar>
-        <v-content>
+        <v-main>
             <v-tabs-items v-model="tab">
                 <v-tab-item v-for="filename in filenames"
                     style="font-family: monospace; white-space: pre; font-size:12px; margin: 1em"
-                    :key="filename">{{files[filename]}}</v-tab-item>
+                    :key="filename"><pre><code>{{files[filename]}}</code></pre></v-tab-item>
             </v-tabs-items>
-        </v-content>
+        </v-main>
     </v-app>
 </template>
 
@@ -57,6 +56,7 @@ export default {
                     this.$set(this.files, fileReceived.name, fileReceived.contents)
                     if (!this.filenames.includes(fileReceived.name)) {
                         this.filenames.push(fileReceived.name)
+                        hljs.initHighlightingOnLoad()
                     }
                     if (this.tab === null || this.follow) {
                         this.tab = fileReceived.name
