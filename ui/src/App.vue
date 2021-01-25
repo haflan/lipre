@@ -8,11 +8,18 @@
                     {{filename}}
                 </v-tab>
             </v-tabs>
-            <v-badge v-show="status"/>
         </v-app-bar>
         <v-main>
+            <v-alert dense 
+                     v-if="!connected" 
+                     :type="connected === null ? 'info' : 'error'"
+                     :style="connected ? '' : 'cursor: pointer;'"
+                     @click="connect">
+                {{connected === null ? 'Connecting...' : 'No connection - click to retry'}}
+            </v-alert>
             <v-tabs-items v-model="tab">
                 <v-tab-item v-for="filename in filenames"
+                    :transition="false" :reverse-transition="false"
                     style="font-family: monospace; white-space: pre; font-size:12px; margin: 1em"
                     :key="filename"><pre><code>{{files[filename]}}</code></pre></v-tab-item>
             </v-tabs-items>
@@ -28,21 +35,30 @@ export default {
             tab: null,
             files: {},
             filenames: [],
-            status: "",
+            connected: null,
             ws: null,
-            follow: true
+            follow: true,
         }
     },
     methods: {
-        connect(roomCode) {
+        connect() {
+            this.connected = null
+            let qParams = new URLSearchParams(window.location.search)
+            let roomCode = qParams.get("room")
+            if (!roomCode) {
+                //this.status = "No room specified" // TODO: Use?
+                this.connected = false
+                return
+            }
             let url = `ws://${document.location.host}/view/${roomCode}`
             this.ws = new WebSocket(url)
-            this.files = {}
             this.ws.onclose = () => {
-                this.status = "No connection"
+                this.connected = false
             }
             this.ws.onopen = () => {
-                this.status = "Connected"
+                this.files = {}
+                this.filenames = []
+                this.connected = true
             }
             this.ws.onmessage = (msg) => {
                 let fileReceived = JSON.parse(msg.data)
@@ -59,7 +75,7 @@ export default {
                         hljs.initHighlightingOnLoad()
                     }
                     if (this.tab === null || this.follow) {
-                        this.tab = fileReceived.name
+                        this.tab = this.filenames.findIndex(fn => fn === fileReceived.name)
                     }
                 }
                 //hljs.highlightBlock(document.getElementById("viewer"))
@@ -67,13 +83,7 @@ export default {
         }
     },
     mounted() {
-        let qParams = new URLSearchParams(window.location.search)
-        let roomCode = qParams.get("room")
-        if (!roomCode) {
-            this.status = "No room specified"
-            return
-        }
-        this.connect(roomCode)
+        this.connect()
     }
 }
 </script>

@@ -22,6 +22,15 @@ type Room struct {
 	files map[string][]byte
 }
 
+func (room *Room) Close() {
+	for _, viewer := range room.viewers {
+		if viewer != nil {
+			viewer.Close()
+		}
+	}
+	delete(rooms, room.code)
+}
+
 // TODO: Lock on this for concurrency?
 var rooms = make(map[string]*Room)
 
@@ -32,7 +41,7 @@ func (room *Room) listen() {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
 			}
-			delete(rooms, room.code)
+			room.Close()
 			return
 		}
 		file := struct {
@@ -93,6 +102,10 @@ func presentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	room := &Room{code: roomCode, presenter: conn, files: make(map[string][]byte)}
 	rooms[roomCode] = room
+	conn.SetCloseHandler(func(code int, text string) error {
+		room.Close()
+		return nil
+	})
 	go room.listen()
 }
 
