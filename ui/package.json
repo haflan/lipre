@@ -2,7 +2,7 @@
     "name": "lipre",
     "version": "1.0.0",
     "scripts": {
-        "clean": "rimraf lipre.js",
+        "clean": "rimraf dist/*.js",
         "build": "npm run clean && webpack --config webpack.config.js --mode production",
         "build-dev": "npm run clean && webpack --config webpack.config.js --mode development --watch"
     },

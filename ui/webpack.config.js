@@ -5,7 +5,7 @@ const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin');
 module.exports = {
     entry: "./src/app.js",
     output: {
-        path: __dirname, 
+        path: path.resolve(__dirname, "./dist/"),
         filename: "lipre.js"
     },
     module: {

@@ -70,19 +70,21 @@ var wsUpgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	htmlData, err := ioutil.ReadFile("ui/index.html")
-	if err != nil {
-		panic(err)
+// fileHandler looks in ui/dist directory for static files matching the path
+// Writes a 404 message if not found
+func fileHandler(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Path
+	if filePath == "/" {
+		filePath = "/index.html"
 	}
-	w.Write(htmlData)
-	return
-}
-
-func jsHandler(w http.ResponseWriter, r *http.Request) {
-	htmlData, err := ioutil.ReadFile("ui/lipre.js")
+	// Check if the file exists among the static assets
+	// At time of writing, this is only true for index.html and lipre.js,
+	// but code splitting may be introduced and change that
+	htmlData, err := ioutil.ReadFile(fmt.Sprintf("ui/dist%v", filePath))
 	if err != nil {
-		panic(err)
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("404 :("))
+		return
 	}
 	w.Write(htmlData)
 	return
@@ -129,11 +131,9 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	fmt.Println("Server starting")
 	router := mux.NewRouter()
-	router.HandleFunc("/", indexHandler)
-	router.HandleFunc("/room/{roomCode}", indexHandler)
-	router.HandleFunc("/lipre.js", jsHandler) // Temporary solution?
-	router.HandleFunc("/pres/{roomCode}", presentHandler)
-	router.HandleFunc("/view/{roomCode}", viewHandler)
+	router.HandleFunc("/ws/pres/{roomCode}", presentHandler)
+	router.HandleFunc("/ws/view/{roomCode}", viewHandler)
+	router.PathPrefix("/").HandlerFunc(fileHandler)
 	http.Handle("/", router)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", 8088), nil))
 }

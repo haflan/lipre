@@ -43,7 +43,7 @@ HOST='localhost:8088'
 IGNOREFILE='.lpignore'
 
 ws = websocket.WebSocket()
-ws.connect(f'ws://{HOST}/pres/{room_code}')
+ws.connect(f'ws://{HOST}/ws/pres/{room_code}')
 
 if isfile(IGNOREFILE):
     ignorefilelist = [fn for fn in open(IGNOREFILE).read().split('\n') if fn]

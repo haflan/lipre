@@ -45,13 +45,13 @@ export default {
         connect() {
             this.connected = null
             let qParams = new URLSearchParams(window.location.search)
-            let roomCode = qParams.get("room")
+            let roomCode = qParams.get("r")
             if (!roomCode) {
                 //this.status = "No room specified" // TODO: Use?
                 this.connected = false
                 return
             }
-            let url = `ws://${document.location.host}/view/${roomCode}`
+            let url = `ws://${document.location.host}/ws/view/${roomCode}`
             this.ws = new WebSocket(url)
             this.ws.onclose = () => {
                 this.connected = false
