@@ -20,8 +20,9 @@
             <v-tabs-items v-model="tab">
                 <v-tab-item v-for="filename in filenames"
                     :transition="false" :reverse-transition="false"
-                    style="font-family: monospace; white-space: pre; font-size:12px; margin: 1em"
-                    :key="filename"><pre><code>{{files[filename]}}</code></pre></v-tab-item>
+                    style="font-family: monospace; margin: 1em; line-height: 1.2" :key="filename">
+                        <pre><code style="background-color: white; padding: 0">{{files[filename]}}</code></pre>
+                </v-tab-item>
             </v-tabs-items>
         </v-main>
     </v-app>
