@@ -51,7 +51,9 @@ export default {
                 this.connected = false
                 return
             }
-            let url = `ws://${document.location.host}/ws/view/${roomCode}`
+            // Quick fix to determine whether to use WSS or not
+            let proto = window.location.href.startsWith("https://") ? "wss" : "ws"
+            let url = `${proto}://${document.location.host}/ws/view/${roomCode}`
             this.ws = new WebSocket(url)
             this.ws.onclose = () => {
                 this.connected = false

@@ -8,6 +8,7 @@ import re
 import sys
 import websocket
 
+IGNOREFILE='.lpignore'
 ignorefilelist = []
 
 def should_ignore(filename):
@@ -35,15 +36,17 @@ def send_file(filename):
 
 program = sys.argv[0]
 if len(sys.argv) <= 1:
-    print(f'Use: {program} <room code>')
+    print(f'Use: {program} <room code> [host]')
     exit(1)
 room_code = sys.argv[1]
 
-HOST='localhost:8088'
-IGNOREFILE='.lpignore'
+if len(sys.argv) >= 3:
+    HOST = sys.argv[2]
+else:
+    HOST='ws://localhost:8088'
 
 ws = websocket.WebSocket()
-ws.connect(f'ws://{HOST}/ws/pres/{room_code}')
+ws.connect(f'{HOST}/ws/pres/{room_code}')
 
 if isfile(IGNOREFILE):
     ignorefilelist = [fn for fn in open(IGNOREFILE).read().split('\n') if fn]
