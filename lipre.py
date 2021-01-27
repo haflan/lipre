@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from os import listdir
+from os import listdir, getenv
 from os.path import isfile, basename
 import pyinotify
 import json
@@ -40,10 +40,12 @@ if len(sys.argv) <= 1:
     exit(1)
 room_code = sys.argv[1]
 
-if len(sys.argv) >= 3:
+if getenv('LPHOST'):
+    HOST = getenv('LPHOST')
+elif len(sys.argv) >= 3:
     HOST = sys.argv[2]
 else:
-    HOST='ws://localhost:8088'
+    HOST = 'ws://localhost:8080'
 
 ws = websocket.WebSocket()
 ws.connect(f'{HOST}/ws/pres/{room_code}')

@@ -135,5 +135,5 @@ func main() {
 	router.HandleFunc("/ws/view/{roomCode}", viewHandler)
 	router.PathPrefix("/").HandlerFunc(fileHandler)
 	http.Handle("/", router)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", 8088), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", 8080), nil))
 }
