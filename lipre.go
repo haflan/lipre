@@ -1,11 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -14,52 +15,76 @@ import (
 // Not used - either read password from config / flag or define the valid rooms in a file on server
 const temporaryCorrectRoomCode = "tester"
 
+type File struct {
+	Name     string `json:"name"`
+	Contents string `json:"contents"`
+}
+
 type Room struct {
+	mu        sync.Mutex
 	code      string
 	presenter *websocket.Conn
 	viewers   []*websocket.Conn
 	// Store files so that they can be sent to new viewers upon connection
-	files map[string][]byte
+	files map[string]File
+	// Number of minutes for which the room should continue to be open after the presenter disconnects
+	linger int
 }
 
-func (room *Room) Close() {
+var rooms = make(map[string]*Room)
+
+// Thread safe Room functions.
+// The rooms map should only be updated from here
+func (room *Room) Open() {
+	room.mu.Lock()
+	defer room.mu.Unlock()
+	existingRoom := rooms[room.code]
+	if existingRoom != nil {
+		fmt.Printf("Closing existing room '%v'\n", existingRoom.code)
+		existingRoom.Close(false)
+	}
+	rooms[room.code] = room
+	room.presenter.SetCloseHandler(func(code int, text string) error {
+		room.Close(true)
+		return nil
+	})
+	go room.listen()
+}
+
+func (room *Room) Close(presenter bool) {
+	room.mu.Lock()
+	defer room.mu.Unlock()
 	for _, viewer := range room.viewers {
 		if viewer != nil {
 			viewer.Close()
 		}
 	}
+	// Close the presenter too, in case it's not closed already
+	if !presenter {
+		room.presenter.Close()
+	}
 	delete(rooms, room.code)
 }
 
-// TODO: Lock on this for concurrency?
-var rooms = make(map[string]*Room)
-
 func (room *Room) listen() {
 	for {
-		_, message, err := room.presenter.ReadMessage()
+		var file File
+		err := room.presenter.ReadJSON(&file)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("Connection to room '%v' closed by presenter", room.code)
+			} else {
 				log.Printf("error: %v", err)
 			}
-			room.Close()
+			// TODO: Handle JSON errors (send info to presenter)
 			return
 		}
-		file := struct {
-			Name     string `json:"name"`
-			Contents string `json:"contents"`
-		}{}
-		err = json.Unmarshal(message, &file)
-		if err != nil {
-			log.Printf("error: %v", err)
-			// TODO: Send info to presenter
-			return
-		}
-		room.files[file.Name] = message
+		room.files[file.Name] = file
 		for _, viewerConn := range room.viewers {
 			if viewerConn == nil {
 				break
 			}
-			viewerConn.WriteMessage(websocket.TextMessage, message)
+			viewerConn.WriteJSON(&file)
 		}
 	}
 }
@@ -92,6 +117,12 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 
 func presentHandler(w http.ResponseWriter, r *http.Request) {
 	roomCode := mux.Vars(r)["roomCode"]
+	qparams := r.URL.Query()
+	pLinger := qparams["linger"]
+	var iLinger int
+	if len(pLinger) == 1 {
+		iLinger, _ = strconv.Atoi(pLinger[0])
+	}
 	/*if roomCode != temporaryCorrectRoomCode {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -102,13 +133,8 @@ func presentHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	room := &Room{code: roomCode, presenter: conn, files: make(map[string][]byte)}
-	rooms[roomCode] = room
-	conn.SetCloseHandler(func(code int, text string) error {
-		room.Close()
-		return nil
-	})
-	go room.listen()
+	room := &Room{code: roomCode, presenter: conn, linger: iLinger, files: make(map[string]File)}
+	room.Open()
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +150,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	room.viewers = append(rooms[roomCode].viewers, conn)
 	for _, filedata := range room.files {
-		conn.WriteMessage(websocket.TextMessage, filedata)
+		conn.WriteJSON(&filedata)
 	}
 }
 
