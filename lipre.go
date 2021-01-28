@@ -68,14 +68,13 @@ func (room *Room) Close(presenter bool) {
 
 func (room *Room) listen() {
 	for {
-		room.mu.Lock()
 		var file File
 		err := room.presenter.ReadJSON(&file)
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("Connection to room '%v' closed by presenter", room.code)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseAbnormalClosure) {
+				log.Printf("Unexpected close error: %v", err)
 			} else {
-				log.Printf("error: %v", err)
+				log.Printf("Connection to room '%v' closed by presenter", room.code)
 			}
 			// TODO: Handle JSON errors (send info to presenter)
 			return
@@ -87,7 +86,6 @@ func (room *Room) listen() {
 			}
 			viewerConn.WriteJSON(&file)
 		}
-		room.mu.Unlock()
 	}
 }
 
