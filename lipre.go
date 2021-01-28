@@ -68,6 +68,7 @@ func (room *Room) Close(presenter bool) {
 
 func (room *Room) listen() {
 	for {
+		room.mu.Lock()
 		var file File
 		err := room.presenter.ReadJSON(&file)
 		if err != nil {
@@ -86,6 +87,7 @@ func (room *Room) listen() {
 			}
 			viewerConn.WriteJSON(&file)
 		}
+		room.mu.Unlock()
 	}
 }
 
