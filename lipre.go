@@ -34,36 +34,44 @@ type Room struct {
 var rooms = make(map[string]*Room)
 
 // Thread safe Room functions.
-// The rooms map should only be updated from here
-func (room *Room) Open() {
+// The rooms map should only be written to from these
+
+func (room *Room) open() {
 	room.mu.Lock()
 	defer room.mu.Unlock()
 	existingRoom := rooms[room.code]
 	if existingRoom != nil {
-		fmt.Printf("Closing existing room '%v'\n", existingRoom.code)
-		existingRoom.Close(false)
+		existingRoom.close()
 	}
 	rooms[room.code] = room
 	room.presenter.SetCloseHandler(func(code int, text string) error {
-		room.Close(true)
+		fmt.Printf("Closing room '%v'", room.code)
+		for _, viewer := range room.viewers {
+			if viewer != nil {
+				viewer.Close()
+			}
+		}
+		delete(rooms, room.code)
 		return nil
 	})
 	go room.listen()
 }
 
-func (room *Room) Close(presenter bool) {
+func (room *Room) close() {
 	room.mu.Lock()
 	defer room.mu.Unlock()
-	for _, viewer := range room.viewers {
-		if viewer != nil {
-			viewer.Close()
-		}
+	// The actual room close code is handled in the presenter connection close handler
+	room.presenter.Close()
+}
+
+func (room *Room) addViewer(viewerConn *websocket.Conn) {
+	room.mu.Lock()
+	room.viewers = append(room.viewers, viewerConn)
+	room.mu.Unlock()
+	// And write all existing files
+	for _, filedata := range room.files {
+		viewerConn.WriteJSON(&filedata)
 	}
-	// Close the presenter too, in case it's not closed already
-	if !presenter {
-		room.presenter.Close()
-	}
-	delete(rooms, room.code)
 }
 
 func (room *Room) listen() {
@@ -73,9 +81,8 @@ func (room *Room) listen() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseAbnormalClosure) {
 				log.Printf("Unexpected close error: %v", err)
-			} else {
-				log.Printf("Connection to room '%v' closed by presenter", room.code)
 			}
+			room.close()
 			// TODO: Handle JSON errors (send info to presenter)
 			return
 		}
@@ -134,7 +141,7 @@ func presentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	room := &Room{code: roomCode, presenter: conn, linger: iLinger, files: make(map[string]File)}
-	room.Open()
+	room.open()
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
@@ -148,10 +155,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	room.viewers = append(rooms[roomCode].viewers, conn)
-	for _, filedata := range room.files {
-		conn.WriteJSON(&filedata)
-	}
+	room.addViewer(conn)
 }
 
 func main() {
