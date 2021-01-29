@@ -45,13 +45,7 @@ func (room *Room) open() {
 	}
 	rooms[room.code] = room
 	room.presenter.SetCloseHandler(func(code int, text string) error {
-		fmt.Printf("Closing room '%v'", room.code)
-		for _, viewer := range room.viewers {
-			if viewer != nil {
-				viewer.Close()
-			}
-		}
-		delete(rooms, room.code)
+		room.close()
 		return nil
 	})
 	go room.listen()
@@ -61,7 +55,14 @@ func (room *Room) close() {
 	room.mu.Lock()
 	defer room.mu.Unlock()
 	// The actual room close code is handled in the presenter connection close handler
+	fmt.Printf("Closing room '%v'\n", room.code)
+	for _, viewer := range room.viewers {
+		if viewer != nil {
+			viewer.Close()
+		}
+	}
 	room.presenter.Close()
+	delete(rooms, room.code)
 }
 
 func (room *Room) addViewer(viewerConn *websocket.Conn) {
@@ -82,7 +83,6 @@ func (room *Room) listen() {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseAbnormalClosure) {
 				log.Printf("Unexpected close error: %v", err)
 			}
-			room.close()
 			// TODO: Handle JSON errors (send info to presenter)
 			return
 		}
