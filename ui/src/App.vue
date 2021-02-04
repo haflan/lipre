@@ -8,6 +8,9 @@
                     {{filename}}
                 </v-tab>
             </v-tabs>
+            <v-spacer/>
+            <v-icon title="Download ZIP"
+                    @click="download">mdi-zip-box</v-icon>
         </v-app-bar>
         <v-main>
             <v-alert dense 
@@ -29,6 +32,8 @@
 </template>
 
 <script>
+import JSZip from "jszip"
+import { saveAs } from "file-saver"
 export default {
     name: "App",
     data() {
@@ -39,21 +44,20 @@ export default {
             connected: null,
             ws: null,
             follow: true,
+            zip: new JSZip()
         }
     },
     methods: {
         connect() {
             this.connected = null
-            let qParams = new URLSearchParams(window.location.search)
-            let roomCode = qParams.get("r")
-            if (!roomCode) {
+            if (!this.roomCode) {
                 //this.status = "No room specified" // TODO: Use?
                 this.connected = false
                 return
             }
             // Quick fix to determine whether to use WSS or not
             let proto = window.location.href.startsWith("https://") ? "wss" : "ws"
-            let url = `${proto}://${document.location.host}/ws/view/${roomCode}`
+            let url = `${proto}://${document.location.host}/ws/view/${this.roomCode}`
             this.ws = new WebSocket(url)
             this.ws.onclose = () => {
                 this.connected = false
@@ -83,6 +87,20 @@ export default {
                 }
                 //hljs.highlightBlock(document.getElementById("viewer"))
             }
+        },
+        download() {
+            for (let fn in this.files) {
+                this.zip.file(fn, this.files[fn])
+            }
+            this.zip.generateAsync({type:"blob"}).then(content => {
+                saveAs(content, this.roomCode + ".zip")
+            })
+        }
+    },
+    computed: {
+        roomCode() {
+            let qParams = new URLSearchParams(window.location.search)
+            return qParams.get("r")
         }
     },
     mounted() {
