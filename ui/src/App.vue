@@ -1,6 +1,6 @@
 <template>
     <v-app>
-        <v-app-bar app>
+        <v-app-bar app v-show="roomCode">
             <v-tabs v-model="tab">
                 <v-tab v-for="filename in filenames" 
                        :key="filename"
@@ -14,19 +14,29 @@
         </v-app-bar>
         <v-main>
             <v-alert dense 
-                     v-if="!connected" 
+                     v-if="!connected && roomCode"
                      :type="connected === null ? 'info' : 'error'"
                      :style="connected ? '' : 'cursor: pointer;'"
                      @click="connect">
                 {{connected === null ? 'Connecting...' : 'No connection - click to retry'}}
             </v-alert>
-            <v-tabs-items v-model="tab">
+            <v-tabs-items
+                v-if="roomCode"
+                v-model="tab"
+            >
                 <v-tab-item v-for="filename in filenames"
                     :transition="false" :reverse-transition="false"
                     style="font-family: monospace; margin: 1em; line-height: 1.2" :key="filename">
                         <pre><code style="background-color: white; padding: 0">{{files[filename]}}</code></pre>
                 </v-tab-item>
             </v-tabs-items>
+            <v-container v-else>
+                <div>
+                No room specified.
+                Run the following in your terminal to open a new room:
+                </div>
+                <code>curl -s {{ hostName }} | python3</code>
+            </v-container>
         </v-main>
     </v-app>
 </template>
@@ -101,6 +111,9 @@ export default {
         roomCode() {
             let qParams = new URLSearchParams(window.location.search)
             return qParams.get("r")
+        },
+        hostName() {
+            return window.location.href
         }
     },
     mounted() {

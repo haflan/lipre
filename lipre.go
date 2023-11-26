@@ -1,19 +1,34 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 )
 
-// Not used - either read password from config / flag or define the valid rooms in a file on server
-const temporaryCorrectRoomCode = "tester"
+var (
+	//go:embed ui/dist/index.html
+	indexHTML []byte
+
+	//go:embed ui/dist/lipre.js
+	lipreJS []byte
+
+	//go:embed ui/dist/favicon.ico
+	favicon []byte
+
+	//go:embed lipre.py
+	liprePy string
+
+	liprePyTemplate = template.Must(template.New("lipre.py").Parse(liprePy))
+)
 
 type File struct {
 	Name     string `json:"name"`
@@ -106,20 +121,35 @@ var wsUpgrader = websocket.Upgrader{
 // Writes a 404 message if not found
 func fileHandler(w http.ResponseWriter, r *http.Request) {
 	filePath := r.URL.Path
-	if filePath == "/" {
-		filePath = "/index.html"
-	}
-	// Check if the file exists among the static assets
-	// At time of writing, this is only true for index.html and lipre.js,
-	// but code splitting may be introduced and change that
-	htmlData, err := ioutil.ReadFile(fmt.Sprintf("ui/dist%v", filePath))
-	if err != nil {
+	switch filePath {
+	case "/":
+		if strings.HasPrefix(r.Header.Get("User-Agent"), "curl") {
+			goto liprepy
+		}
+		fallthrough
+	case "/index.html":
+		w.Write(indexHTML)
+	case "/favicon.ico":
+		w.Write(favicon)
+	case "/lipre.js":
+		w.Write(lipreJS)
+	case "/lipre.py", "/l.py":
+		goto liprepy
+	default:
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("404 :("))
-		return
 	}
-	w.Write(htmlData)
 	return
+liprepy:
+	// If this fails we get 0, which is the desired default anyway
+	linger, _ := strconv.Atoi(r.URL.Query().Get("linger"))
+	liprePyTemplate.Execute(w, struct {
+		Host   string
+		Linger int
+	}{
+		Host:   r.Host,
+		Linger: linger,
+	})
 }
 
 func presentHandler(w http.ResponseWriter, r *http.Request) {
@@ -130,10 +160,6 @@ func presentHandler(w http.ResponseWriter, r *http.Request) {
 	if len(pLinger) == 1 {
 		iLinger, _ = strconv.Atoi(pLinger[0])
 	}
-	/*if roomCode != temporaryCorrectRoomCode {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}*/
 	fmt.Println("Upgrading connection")
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {

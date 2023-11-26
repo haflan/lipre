@@ -7,6 +7,8 @@ import json
 import re
 import sys
 import websocket
+import secrets
+import string
 
 IGNOREFILE='.lpignore'
 ignorefilelist = []
@@ -37,28 +39,26 @@ def closed():
     print('Connection closed')
     exit()
 
-program = sys.argv[0]
-if len(sys.argv) <= 1:
-    print(f'Use: {program} <room code> [host]')
-    exit(1)
-room_code = sys.argv[1]
+def generate_room_code(length=8):
+    # Define the characters to use for the URL safe string
+    characters = string.ascii_letters + string.digits + '-_'
+    secure_string = ''.join(secrets.choice(characters) for _ in range(length))
+    return secure_string
 
-if getenv('LPHOST'):
-    HOST = getenv('LPHOST')
-elif len(sys.argv) >= 3:
-    HOST = sys.argv[2]
-else:
-    HOST = 'ws://localhost:8080'
-
-if ':' in room_code:
-    code, linger = room_code = room_code.split(':')
-    url = f'{HOST}/ws/pres/{code}?linger={linger}'
-else:
-    url = f'{HOST}/ws/pres/{room_code}'
+host='{{.Host}}'
+linger={{.Linger}}
+room_code = generate_room_code()
+wsUrlBase = f'ws://{host}' if 'localhost' in host else f'wss://{host}'
+httpUrlBase = f'http://{host}' if 'localhost' in host else f'https://{host}'
+url = f'{wsUrlBase}/ws/pres/{room_code}?linger={linger}'
 
 if isfile(IGNOREFILE):
     ignorefilelist = [fn for fn in open(IGNOREFILE).read().split('\n') if fn]
 
+print('Starting room: ' + f'{httpUrlBase}/?r={room_code}')
+
+if linger:
+    print(f'Room will linger for {linger} seconds after you disconnect')
 
 # Listen for changes
 class EventHandler(pyinotify.ProcessEvent):
